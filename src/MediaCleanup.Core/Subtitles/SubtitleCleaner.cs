@@ -34,7 +34,8 @@ public sealed class SubtitleCleaner
     }
 
     /// <summary>Cleans a subtitle file in place. Returns how many cues were removed.</summary>
-    public int CleanFile(string path)
+    /// <param name="write">False to only count the cues that would be removed.</param>
+    public int CleanFile(string path, bool write = true)
     {
         if (!CanClean(path)) return 0;
         var bytes = File.ReadAllBytes(path);
@@ -44,7 +45,7 @@ public sealed class SubtitleCleaner
         var (cleaned, removed) = ScriptFormats.Contains(Path.GetExtension(path))
             ? CleanScript(text)
             : CleanBlocks(text, renumber: Path.GetExtension(path).Equals(".srt", StringComparison.OrdinalIgnoreCase));
-        if (removed == 0) return 0;
+        if (removed == 0 || !write) return removed;
 
         using var stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.None);
         stream.Write(bytes, 0, preambleLength);

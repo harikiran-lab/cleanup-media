@@ -16,9 +16,12 @@ public sealed class ItemProcessor
     private readonly SubtitleCleaner _subtitles;
     private readonly MkvCleaner _mkv;
     private readonly HashSet<string> _unwanted;
+    private readonly bool _preview;
 
-    public ItemProcessor(AppConfig config, MonitorMapping mapping, IMkvToolRunner mkvTools, ILogger logger)
+    /// <param name="preview">True to log every step that would be taken without changing anything on disk.</param>
+    public ItemProcessor(AppConfig config, MonitorMapping mapping, IMkvToolRunner mkvTools, ILogger logger, bool preview = false)
     {
+        _preview = preview;
         _config = config;
         _mapping = mapping;
         _log = logger;
@@ -44,7 +47,7 @@ public sealed class ItemProcessor
         {
             foreach (var file in AllFiles(folder).Where(IsUnwanted))
                 DeleteUnwanted(file);
-            FileOps.DeleteEmptyDirectories(folder, includeRoot: false);
+            if (!_preview) FileOps.DeleteEmptyDirectories(folder, includeRoot: false);
         }
 
         if (Actions.SubtitleCleanup)
@@ -59,7 +62,8 @@ public sealed class ItemProcessor
             var name = Path.GetFileName(file);
             var cleaned = CleanedFileName(name);
             if (cleaned == name) continue;
-            var moved = FileOps.MoveFile(file, Path.Combine(Path.GetDirectoryName(file)!, cleaned));
+            if (_preview && Actions.RemoveUnwantedFiles && IsUnwanted(file)) continue; // Already reported as removed.
+            var moved = _preview ? cleaned : FileOps.MoveFile(file, Path.Combine(Path.GetDirectoryName(file)!, cleaned));
             _log.LogInformation("  Renamed '{Old}' -> '{New}'", name, Path.GetFileName(moved));
         }
 
@@ -69,7 +73,7 @@ public sealed class ItemProcessor
         var folderName = Path.GetFileName(folder);
         var finalName = Actions.NameCleanup ? _names.CleanFolderName(folderName) : folderName;
         var target = Path.Combine(TargetRoot, finalName);
-        var final = FileOps.MoveDirectory(folder, target);
+        var final = _preview ? target : FileOps.MoveDirectory(folder, target);
         if (!string.Equals(final, folder, StringComparison.Ordinal))
             _log.LogInformation("  Moved folder to: {Target}", final);
         return final;
@@ -108,20 +112,22 @@ public sealed class ItemProcessor
             : TargetRoot;
 
         ct.ThrowIfCancellationRequested();
-        var finalMedia = FileOps.MoveFile(mediaFile, Path.Combine(targetDirectory, newMediaName));
+        var finalMedia = Move(mediaFile, Path.Combine(targetDirectory, newMediaName));
         if (!string.Equals(finalMedia, mediaFile, StringComparison.Ordinal))
             _log.LogInformation("  Moved to: {Target}", finalMedia);
 
         foreach (var companion in kept)
         {
             var name = Path.GetFileName(companion);
-            var moved = FileOps.MoveFile(companion, Path.Combine(targetDirectory, CleanedFileName(name)));
+            var moved = Move(companion, Path.Combine(targetDirectory, CleanedFileName(name)));
             if (!string.Equals(moved, companion, StringComparison.Ordinal))
                 _log.LogInformation("  Also moved: {Name} -> {Target}", name, moved);
         }
 
         return wrap ? targetDirectory : finalMedia;
     }
+
+    private string Move(string source, string destination) => _preview ? destination : FileOps.MoveFile(source, destination);
 
     private string CleanedFileName(string name)
     {
@@ -138,7 +144,7 @@ public sealed class ItemProcessor
             return;
         }
 
-        var result = await _mkv.CleanAsync(file, Actions.TrackNameCleanup, Actions.SetDefaultAudio, ct).ConfigureAwait(false);
+        var result = await _mkv.CleanAsync(file, Actions.TrackNameCleanup, Actions.SetDefaultAudio, ct, apply: !_preview).ConfigureAwait(false);
         foreach (var note in result.Notes)
             _log.LogInformation("  [{File}] {Note}", Path.GetFileName(file), note);
     }
@@ -147,7 +153,7 @@ public sealed class ItemProcessor
     {
         try
         {
-            var removed = _subtitles.CleanFile(file);
+            var removed = _subtitles.CleanFile(file, write: !_preview);
             if (removed > 0)
                 _log.LogInformation("  Removed {Count} website line(s) from subtitle {File}", removed, Path.GetFileName(file));
         }
@@ -169,7 +175,7 @@ public sealed class ItemProcessor
             var name = Path.GetFileName(folder);
             var cleaned = _names.CleanFolderName(name);
             if (cleaned == name) continue;
-            FileOps.MoveDirectory(folder, Path.Combine(Path.GetDirectoryName(folder)!, cleaned));
+            if (!_preview) FileOps.MoveDirectory(folder, Path.Combine(Path.GetDirectoryName(folder)!, cleaned));
             _log.LogInformation("  Renamed folder '{Old}' -> '{New}'", name, cleaned);
         }
     }
@@ -179,7 +185,7 @@ public sealed class ItemProcessor
 
     private void DeleteUnwanted(string file)
     {
-        FileOps.DeleteFile(file);
+        if (!_preview) FileOps.DeleteFile(file);
         _log.LogInformation("  Removed unwanted file: {File}", Path.GetFileName(file));
     }
 

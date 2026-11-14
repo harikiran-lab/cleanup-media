@@ -1,7 +1,7 @@
 <Project>
   <PropertyGroup>
     <!-- The single place the product version is set. The installer workflow reads it from here. -->
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Product>Media Cleanup</Product>
     <Company>Media Cleanup</Company>
   </PropertyGroup>

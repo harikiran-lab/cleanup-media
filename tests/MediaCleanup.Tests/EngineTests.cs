@@ -280,3 +280,120 @@ public sealed class EngineTests : IDisposable
         Assert.Equal("", loaded.Mappings[1].DestinationPath);
     }
 }
+
+public sealed class ManualCleanupTests : IDisposable
+{
+    private readonly string _root = Directory.CreateTempSubdirectory("mc-manual").FullName;
+    private readonly ListLogger _log = new();
+    private readonly FakeMkvTools _tools = new() { Json = """{ "global_tags": [ { "num_entries": 1 } ], "tracks": [] }""" };
+
+    public void Dispose() => Directory.Delete(_root, true);
+
+    private void Touch(string relative, string content = "data")
+    {
+        var path = Path.Combine(_root, relative);
+        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+        File.WriteAllText(path, content);
+    }
+
+    private string[] Tree() => Directory
+        .EnumerateFileSystemEntries(_root, "*", SearchOption.AllDirectories)
+        .Select(p => Path.GetRelativePath(_root, p).Replace('\\', '/') + (Directory.Exists(p) ? "/" : ""))
+        .OrderBy(p => p, StringComparer.Ordinal)
+        .ToArray();
+
+    private void Seed()
+    {
+        Touch("www.site.com - Old.Movie.1999/www.site.com - Old.Movie.1999.mkv");
+        Touch("www.site.com - Old.Movie.1999/www.site.com - Old.Movie.1999.srt", "1\n00:00:01,000 --> 00:00:02,000\nwww.site.com\n");
+        Touch("www.site.com - Old.Movie.1999/info.nfo");
+        Touch("tamilmv.us - Don.2003.Web-DL.mp4");
+    }
+
+    private Task<ManualCleanupResult> Run(ActionSettings actions, bool preview = false, MediaKind kind = MediaKind.Movie) =>
+        ManualCleanup.RunAsync(new AppConfig(), new ManualCleanupOptions { Folder = _root, Kind = kind, Actions = actions, Preview = preview },
+            _tools, _log, CancellationToken.None);
+
+    [Fact]
+    public async Task Nothing_is_selected_by_default_and_then_nothing_changes()
+    {
+        Seed();
+        var before = Tree();
+        var options = new ManualCleanupOptions { Folder = _root, Actions = ManualCleanupOptions.NoActions() };
+        Assert.False(options.HasAnyAction);
+
+        var result = await Run(ManualCleanupOptions.NoActions());
+
+        Assert.Equal(2, result.Processed);
+        Assert.Equal(before, Tree());
+        Assert.Empty(_tools.PropEditCalls);
+        Assert.Contains("www.site.com", File.ReadAllText(Path.Combine(_root, "www.site.com - Old.Movie.1999", "www.site.com - Old.Movie.1999.srt")));
+    }
+
+    [Fact]
+    public async Task Only_the_selected_actions_run()
+    {
+        Seed();
+        var actions = ManualCleanupOptions.NoActions();
+        actions.NameCleanup = true;
+
+        var result = await Run(actions);
+
+        Assert.Equal(new ManualCleanupResult(2, 0, 0, false), result);
+        Assert.Equal(new[]
+        {
+            "Don 2003 Web-DL.mp4",
+            "Old Movie 1999/", "Old Movie 1999/Old Movie 1999.mkv", "Old Movie 1999/Old Movie 1999.srt", "Old Movie 1999/info.nfo",
+        }, Tree());
+        Assert.Empty(_tools.PropEditCalls);
+        Assert.Contains("www.site.com", File.ReadAllText(Path.Combine(_root, "Old Movie 1999", "Old Movie 1999.srt")));
+    }
+
+    [Fact]
+    public async Task Preview_reports_every_step_but_changes_nothing()
+    {
+        Seed();
+        var before = Tree();
+        var all = new ActionSettings();
+
+        var result = await Run(all, preview: true);
+
+        Assert.Equal(2, result.Processed);
+        Assert.Equal(before, Tree());
+        Assert.Empty(_tools.PropEditCalls);
+        Assert.Contains("www.site.com", File.ReadAllText(Path.Combine(_root, "www.site.com - Old.Movie.1999", "www.site.com - Old.Movie.1999.srt")));
+        Assert.Contains(_log.Lines, l => l.Contains("Removed tags"));
+        Assert.Contains(_log.Lines, l => l.Contains("Removed unwanted file: info.nfo"));
+        Assert.Contains(_log.Lines, l => l.Contains("Removed 1 website line(s)"));
+        Assert.Contains(_log.Lines, l => l.Contains("Renamed 'www.site.com - Old.Movie.1999.mkv' -> 'Old Movie 1999.mkv'"));
+        Assert.Contains(_log.Lines, l => l.Contains("Moved folder to:") && l.Contains("Old Movie 1999"));
+        Assert.Contains(_log.Lines, l => l.Contains("Moved to:") && l.Contains(Path.Combine("Don 2003 Web-DL", "Don 2003 Web-DL.mp4")));
+        Assert.DoesNotContain(_log.Lines, l => l.Contains("Renamed 'info.nfo'"));
+
+        // The real run then does exactly what the preview said.
+        await Run(all);
+        Assert.Equal(new[]
+        {
+            "Don 2003 Web-DL/", "Don 2003 Web-DL/Don 2003 Web-DL.mp4",
+            "Old Movie 1999/", "Old Movie 1999/Old Movie 1999.mkv", "Old Movie 1999/Old Movie 1999.srt",
+        }, Tree());
+    }
+
+    [Fact]
+    public async Task A_failure_on_one_item_does_not_stop_the_rest()
+    {
+        Seed();
+        Touch("Bad.Movie.2001.mkv");
+        _tools.PropEditExitCode = 2;
+        var actions = ManualCleanupOptions.NoActions();
+        actions.TrackNameCleanup = true;
+        actions.NameCleanup = true;
+
+        var result = await Run(actions, kind: MediaKind.TvShow);
+
+        Assert.Equal(1, result.Processed);   // the .mp4, which has no MKV header to edit
+        Assert.Equal(2, result.Failed);
+        Assert.Contains("Don 2003 Web-DL.mp4", Tree());
+        Assert.Contains("Bad.Movie.2001.mkv", Tree());
+    }
+}

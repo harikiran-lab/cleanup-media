@@ -34,7 +34,8 @@ public sealed class MkvCleaner
 
     public bool IsAvailable => _runner.IsAvailable;
 
-    public async Task<MkvCleanResult> CleanAsync(string file, bool cleanNames, bool setDefaultAudio, CancellationToken ct)
+    /// <param name="apply">False to only report what would change, without editing the file.</param>
+    public async Task<MkvCleanResult> CleanAsync(string file, bool cleanNames, bool setDefaultAudio, CancellationToken ct, bool apply = true)
     {
         if (!cleanNames && !setDefaultAudio) return new MkvCleanResult(false, Array.Empty<string>());
 
@@ -63,6 +64,7 @@ public sealed class MkvCleaner
             var notes = new List<string>();
             var actions = BuildActions(root, cleanNames, setDefaultAudio, notes);
             if (actions.Count == 0) return new MkvCleanResult(false, notes);
+            if (!apply) return new MkvCleanResult(true, notes);
 
             var arguments = new List<string> { file };
             arguments.AddRange(actions);
