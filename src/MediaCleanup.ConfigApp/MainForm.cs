@@ -47,6 +47,16 @@ internal sealed class MainForm : Form
         MinimumSize = new Size(900, 560);
         Size = new Size(1080, 660);
 
+        try
+        {
+            // The window and taskbar use the icon that is built into the program file.
+            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException)
+        {
+            // Keep the default icon.
+        }
+
         BuildLayout();
         LoadConfig();
         RefreshServiceStatus();

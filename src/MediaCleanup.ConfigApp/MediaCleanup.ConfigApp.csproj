@@ -10,6 +10,7 @@
     <AssemblyName>MediaCleanup.Config</AssemblyName>
     <RootNamespace>MediaCleanup.ConfigApp</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>..\..\assets\app.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
