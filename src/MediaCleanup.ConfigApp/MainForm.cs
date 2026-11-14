@@ -34,6 +34,8 @@ internal sealed class MainForm : Form
     private readonly TextBox _customTerms = new() { Dock = DockStyle.Fill, Multiline = true, ScrollBars = ScrollBars.Vertical, Height = 110, AcceptsReturn = true };
     private readonly Label _status = new() { AutoSize = true, Margin = new Padding(3, 8, 3, 3) };
     private readonly System.Windows.Forms.Timer _timer = new() { Interval = 2000 };
+    private readonly ActivityPanel _activity = new();
+    private bool _activityVisible;
 
     public MainForm()
     {
@@ -47,7 +49,11 @@ internal sealed class MainForm : Form
         BuildLayout();
         LoadConfig();
         RefreshServiceStatus();
-        _timer.Tick += (_, _) => RefreshServiceStatus();
+        _timer.Tick += (_, _) =>
+        {
+            RefreshServiceStatus();
+            if (_activityVisible) _activity.Reload();
+        };
         _timer.Start();
     }
 
@@ -102,7 +108,15 @@ internal sealed class MainForm : Form
         var tabs = new TabControl { Dock = DockStyle.Fill };
         tabs.TabPages.Add(BuildListTab("Movies", MediaKind.Movie, _movies));
         tabs.TabPages.Add(BuildListTab("TV Shows", MediaKind.TvShow, _tvShows));
+        var activityPage = new TabPage("Recent Activity") { Padding = new Padding(8) };
+        activityPage.Controls.Add(_activity);
+        tabs.TabPages.Add(activityPage);
         tabs.TabPages.Add(BuildSettingsTab());
+        tabs.SelectedIndexChanged += (_, _) =>
+        {
+            _activityVisible = tabs.SelectedTab == activityPage;
+            if (_activityVisible) _activity.Reload();
+        };
 
         root.Controls.Add(header, 0, 0);
         root.Controls.Add(tabs, 0, 1);

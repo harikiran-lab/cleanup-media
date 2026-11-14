@@ -32,6 +32,10 @@ After the enabled actions have run, the download is moved to the destination. A 
 that already exists at the destination is merged, so new episodes join the existing ones. If you
 leave the destination empty, everything is cleaned up in place.
 
+The **Recent Activity** tab lists every download the service has handled, newest first. Select one to
+see each step done to it: renames, MKV track changes, subtitle cleanup, removed files and where it was
+moved. Failed downloads are shown in red with the reason.
+
 The big **Monitoring: ACTIVE / INACTIVE** button is a master switch for all sources. Changes made
 in the app are saved straight away and the running service picks them up within a few seconds.
 
@@ -59,8 +63,8 @@ seeding once its files are renamed or moved.
 You need Windows 10/11 or Windows Server, and [MKVToolNix](https://mkvtoolnix.download/) for the two MKV actions.
 
 1. Get the installer, either way:
-   - Open the **Installer** workflow on the repository's Actions tab, click **Run workflow**, and download `MediaCleanup-Setup-<version>.exe` from the finished run. Pushing a tag such as `v1.1.0` also publishes it as a GitHub Release.
-   - Or build it yourself: with the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) and [Inno Setup 6](https://jrsoftware.org/isinfo.php) installed, run `.\scripts\publish.ps1` and then `ISCC.exe /DAppVersion=1.1.0 installer\MediaCleanup.iss`. The installer lands in `dist\`.
+   - Open the **Installer** workflow on the repository's Actions tab, click **Run workflow**, and download `MediaCleanup-Setup-<version>.exe` from the finished run. Pushing a tag such as `v1.2.0` also publishes it as a GitHub Release.
+   - Or build it yourself: with the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) and [Inno Setup 6](https://jrsoftware.org/isinfo.php) installed, run `.\scripts\publish.ps1` and then `ISCC.exe /DAppVersion=1.2.0 installer\MediaCleanup.iss`. The installer lands in `dist\`.
 2. Run the installer. It copies the files to `C:\Program Files\MediaCleanup`, installs and starts the Windows service, and adds a Start menu shortcut. Installing a newer version over an old one keeps your configuration and the service's log-on account.
 3. Open **Media Cleanup** from the Start menu (it asks for administrator rights).
 4. **Give the service an account that can open your network shares.** A new service runs as
