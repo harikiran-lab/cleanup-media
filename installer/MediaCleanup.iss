@@ -1,5 +1,5 @@
 ; Inno Setup script for Media Cleanup.
-; Build with:  ISCC.exe /DAppVersion=1.1.0 installer\MediaCleanup.iss
+; Build with:  ISCC.exe /DAppVersion=1.2.1 installer\MediaCleanup.iss
 ; It packages the "publish" folder produced by scripts\publish.ps1.
 
 #ifndef AppVersion
@@ -27,6 +27,7 @@ OutputBaseFilename=MediaCleanup-Setup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=..\assets\app.ico
 UninstallDisplayName=Media Cleanup
 UninstallDisplayIcon={app}\MediaCleanup.Config.exe
 CloseApplications=yes
@@ -40,7 +41,7 @@ Name: "{autoprograms}\Media Cleanup"; Filename: "{app}\MediaCleanup.Config.exe"
 Name: "{autodesktop}\Media Cleanup"; Filename: "{app}\MediaCleanup.Config.exe"; Tasks: desktopicon
 
 [Tasks]
-Name: "desktopicon"; Description: "Create a desktop shortcut"; Flags: unchecked
+Name: "desktopicon"; Description: "Create a desktop shortcut"
 
 [Run]
 Filename: "{app}\MediaCleanup.Config.exe"; Description: "Open Media Cleanup to set up your folders"; Flags: postinstall nowait skipifsilent shellexec

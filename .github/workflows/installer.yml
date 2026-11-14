@@ -11,6 +11,7 @@ on:
   pull_request:
     paths:
       - "installer/**"
+      - "assets/**"
       - "scripts/publish.ps1"
       - "Directory.Build.props"
       - ".github/workflows/installer.yml"
