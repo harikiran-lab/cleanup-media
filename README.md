@@ -36,6 +36,12 @@ The **Recent Activity** tab lists every download the service has handled, newest
 see each step done to it: renames, MKV track changes, subtitle cleanup, removed files and where it was
 moved. Failed downloads are shown in red with the reason.
 
+The **Manual Cleanup** tab runs chosen actions once over a folder you already have, such as your existing
+library. Pick the folder, say whether it holds movies or TV shows, and tick the actions you want; none are
+ticked to begin with. **Preview** lists every change without touching anything, and **Run cleanup** does it.
+Everything is cleaned in place and nothing is moved elsewhere. The run happens in the app under your own
+Windows account, not in the service, and it refuses a folder that overlaps an active monitored source.
+
 The big **Monitoring: ACTIVE / INACTIVE** button is a master switch for all sources. Changes made
 in the app are saved straight away and the running service picks them up within a few seconds.
 
