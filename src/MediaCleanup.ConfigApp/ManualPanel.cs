@@ -132,7 +132,7 @@ internal sealed class ManualPanel : UserControl
         };
 
         var config = _getConfig();
-        var problem = Validate(options, config);
+        var problem = CheckOptions(options, config);
         if (problem != null)
         {
             MessageBox.Show(this, problem, "Manual cleanup", MessageBoxButtons.OK, MessageBoxIcon.Warning);
@@ -154,7 +154,7 @@ internal sealed class ManualPanel : UserControl
         _state.ForeColor = SystemColors.ControlText;
         _state.Text = preview ? "Previewing..." : "Cleaning...";
         var prefix = preview ? "[preview] " : "";
-        var logger = new CallbackLogger((level, message) => Append(prefix + Label(level) + message));
+        var logger = new CallbackLogger((level, message) => Append(prefix + LevelLabel(level) + message));
         var token = _cancellation.Token;
 
         try
@@ -181,7 +181,7 @@ internal sealed class ManualPanel : UserControl
         }
     }
 
-    private static string? Validate(ManualCleanupOptions options, AppConfig config)
+    private static string? CheckOptions(ManualCleanupOptions options, AppConfig config)
     {
         if (options.Folder.Length == 0) return "Please choose the folder to clean.";
         if (!Path.IsPathFullyQualified(options.Folder)) return "The folder must be a full path such as D:\\Movies or \\\\server\\share\\Movies.";
@@ -222,7 +222,7 @@ internal sealed class ManualPanel : UserControl
         _output.AppendText(line + Environment.NewLine);
     }
 
-    private static string Label(LogLevel level) => level switch
+    private static string LevelLabel(LogLevel level) => level switch
     {
         LogLevel.Warning => "WARN   ",
         LogLevel.Error or LogLevel.Critical => "ERROR  ",
