@@ -1,0 +1,80 @@
+name: Installer
+
+# Builds MediaCleanup-Setup-<version>.exe. The version comes from Directory.Build.props.
+# - Run it by hand from the Actions tab, or
+# - push a tag such as v1.1.0 to also publish a GitHub Release with the installer attached.
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    paths:
+      - "installer/**"
+      - "scripts/publish.ps1"
+      - "Directory.Build.props"
+      - ".github/workflows/installer.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Read version
+        id: version
+        shell: pwsh
+        run: |
+          $version = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version
+          if (-not $version) { throw "No <Version> found in Directory.Build.props." }
+          if ($env:GITHUB_REF_TYPE -eq "tag" -and $env:GITHUB_REF_NAME -ne "v$version") {
+            throw "Tag $($env:GITHUB_REF_NAME) does not match version $version in Directory.Build.props."
+          }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          Write-Host "Version: $version"
+
+      - name: Test
+        run: dotnet test MediaCleanup.sln -c Release
+
+      - name: Publish program files
+        shell: pwsh
+        run: ./scripts/publish.ps1
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --yes --no-progress
+            if ($LASTEXITCODE -ne 0) { throw "Installing Inno Setup failed." }
+          }
+          if (-not (Test-Path $iscc)) { throw "ISCC.exe was not found at $iscc." }
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.version.outputs.version }}" installer\MediaCleanup.iss
+          if ($LASTEXITCODE -ne 0) { throw "Building the installer failed." }
+          Get-ChildItem dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MediaCleanup-Setup-${{ steps.version.outputs.version }}
+          path: dist/MediaCleanup-Setup-${{ steps.version.outputs.version }}.exe
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$env:GITHUB_REF_NAME" "dist/MediaCleanup-Setup-${{ steps.version.outputs.version }}.exe" --title "Media Cleanup ${{ steps.version.outputs.version }}" --generate-notes
+          if ($LASTEXITCODE -ne 0) { throw "Creating the release failed." }

@@ -58,21 +58,21 @@ seeding once its files are renamed or moved.
 
 You need Windows 10/11 or Windows Server, and [MKVToolNix](https://mkvtoolnix.download/) for the two MKV actions.
 
-1. Get the program files, either way:
-   - Download the `MediaCleanup-win-x64` artifact from the latest **Build** run on the repository's Actions tab and unzip it, or
-   - Build it yourself with the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0): run `.\scripts\publish.ps1` in PowerShell. The files land in `publish\`.
-2. Copy the folder to a permanent place, for example `C:\Program Files\MediaCleanup`.
-3. Run `MediaCleanup.Config.exe` (it asks for administrator rights) and click **Install service**.
+1. Get the installer, either way:
+   - Open the **Installer** workflow on the repository's Actions tab, click **Run workflow**, and download `MediaCleanup-Setup-<version>.exe` from the finished run. Pushing a tag such as `v1.1.0` also publishes it as a GitHub Release.
+   - Or build it yourself: with the [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0) and [Inno Setup 6](https://jrsoftware.org/isinfo.php) installed, run `.\scripts\publish.ps1` and then `ISCC.exe /DAppVersion=1.1.0 installer\MediaCleanup.iss`. The installer lands in `dist\`.
+2. Run the installer. It copies the files to `C:\Program Files\MediaCleanup`, installs and starts the Windows service, and adds a Start menu shortcut. Installing a newer version over an old one keeps your configuration and the service's log-on account.
+3. Open **Media Cleanup** from the Start menu (it asks for administrator rights).
 4. **Give the service an account that can open your network shares.** A new service runs as
    Local System, which normally cannot open UNC paths. Click **Windows Services...**, open
    **Media Cleanup Service**, go to the **Log On** tab, choose **This account** and enter a Windows
    user that can read and write your shares. Windows grants that user the right to run services.
-5. Back in the app, click **Start service**, add your sources on the Movies and TV Shows tabs,
+5. Back in the app, click **Stop service** and then **Start service** so the new account takes effect, add your sources on the Movies and TV Shows tabs,
    and check the Settings tab shows that MKVToolNix was found.
 
 The service starts automatically with Windows and restarts itself if it crashes.
 
-To install without the app, run these in an elevated prompt:
+To install without the installer, unzip the `MediaCleanup-win-x64` artifact of the **Build** workflow (or the `publish\` folder) to a permanent place and either click **Install service** in the app or run these in an elevated prompt:
 
 ```
 sc create MediaCleanupService binPath= "\"C:\Program Files\MediaCleanup\MediaCleanup.Service.exe\"" start= delayed-auto DisplayName= "Media Cleanup Service" obj= ".\YourUser" password= "YourPassword"
@@ -84,7 +84,9 @@ With `sc`, the account must already have the "Log on as a service" right; settin
 To try it without installing anything, run `MediaCleanup.Service.exe` in a terminal. It works the
 same way and stops with Ctrl+C.
 
-To uninstall, click **Uninstall service** in the app (or `sc delete MediaCleanupService`) and delete the folder.
+To uninstall, use **Apps > Installed apps** in Windows Settings. It stops and removes the service; your configuration and logs in `%ProgramData%\MediaCleanup` are kept.
+
+The version number lives in `Directory.Build.props`. Change it there before building a new installer.
 
 ## Files
 
